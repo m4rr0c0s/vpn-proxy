@@ -1,0 +1,9 @@
+---
+# handlers file for openvpn
+- name: 'Start the openvpn service'
+  systemd:
+    name: openvpn
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  listen: 'Start OpenVPN'

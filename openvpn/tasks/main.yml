@@ -1,0 +1,12 @@
+---
+# tasks file for openvpn
+- name: 'Install OpenVPN'
+  import_tasks: openvpn-install.yml
+- name: 'Configure OpenVPN server and certificate'
+  import_tasks: openvpn-config-server.yml
+- name: 'Create the client certificate'
+  import_tasks: openvpn-client-cert.yml
+  tags: "client-cert"
+- name: 'Flush any pre-existing rules and non-standard chains which may be in the system'
+  import_tasks: iptables.yml
+

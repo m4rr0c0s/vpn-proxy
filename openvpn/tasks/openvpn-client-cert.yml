@@ -1,0 +1,24 @@
+- name: 'Generate client certificate key'
+  shell: >
+    source vars;
+    ./build-key --batch {{ client_name }}
+  args: 
+    chdir: "{{ ansible_env.HOME }}/openvpn-ca/"
+    executable: /bin/bash
+
+- name: 'Copy the client.ovpn template'
+  template:
+    src: client.ovpn.j2
+    dest: "{{ ansible_env.HOME }}/openvpn-ca/keys/{{ client_name }}.ovpn"
+
+- name: 'Fetch client configurations'
+  fetch:
+    src: "{{ item.property }}/{{ item.value }}"
+    dest: "{{ destination_key }}/{{ client_name }}_files/"
+    flat: yes
+  with_items:
+    - { property: '/etc/openvpn/server/', value: 'ca.crt' }
+    - { property: '/etc/openvpn/server/', value: 'ta.key' }
+    - { property: '{{ ansible_env.HOME }}/openvpn-ca/keys/', value: '{{ client_name }}.crt' }
+    - { property: '{{ ansible_env.HOME }}/openvpn-ca/keys/', value: '{{ client_name }}.key' }
+    - { property: '{{ ansible_env.HOME }}/openvpn-ca/keys/', value: '{{ client_name }}.ovpn' }

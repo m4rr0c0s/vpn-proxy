@@ -1,0 +1,62 @@
+- name: 'Prevent the iptables-persistent install dialog'
+  debconf:
+    name: iptables-persistent
+    question: "{{ item }}"
+    vtype: boolean
+    value: 'true'
+  with_items:
+    - iptables-persistent/autosave_v4
+    - iptables-persistent/autosave_v6
+
+- name: 'Install iptables-persistent package'
+  apt:
+    name: iptables-persistent
+    state: present
+
+- name: 'IPtables flush filter'
+  iptables:
+    table: filter
+    chain: "{{ item }}"
+    flush: yes
+  with_items: [ 'INPUT', 'FORWARD', 'OUTPUT' ]
+
+- name: 'IPtables flush nat'
+  iptables:
+    table: nat
+    chain: "{{ item }}"
+    flush: yes
+  with_items: [ 'INPUT', 'OUTPUT', 'PREROUTING', 'POSTROUTING' ]
+
+- name: 'Copy the rules to /etc/iptables/rules.v4'
+  template:
+    src: rules.v4.j2
+    dest: /etc/iptables/rules.v4
+    owner: root
+    group: root
+    mode: '0644'
+    validate: '/sbin/iptables-restore --test %s'
+
+- name: 'Apply the NAT routing rule'
+  command: /sbin/iptables -t nat -A POSTROUTING -s 10.89.0.0/24 -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+
+- name: 'Aplly the IPV4 routing rules'
+  command: /sbin/iptables-restore /etc/iptables/rules.v4
+
+- name: 'Reconfigure the iptables-persistent package to persist the current rules on boot'
+  command: 'dpkg-reconfigure iptables-persistent -fnoninteractive'
+
+- name: 'Disable IPv6 kernel parameters'
+  sysctl:
+    name: '{{ item.key }}'
+    value: '{{ item.value }}'
+    sysctl_set: yes
+    state: present
+    reload: yes
+    ignoreerrors: yes
+  with_dict: '{{ sysctl_config }}'
+
+- name: 'Comment out ipv6 in /etc/hosts'
+  replace:
+    path: /etc/hosts
+    regexp: "^[^#](.+ip6-.+)$"
+    replace: '#\1'

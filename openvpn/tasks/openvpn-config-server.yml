@@ -1,0 +1,67 @@
+- name: 'Create a HMAC signature for all packets'
+  command:
+    cmd: openvpn --genkey --secret /etc/openvpn/server/ta.key
+    creates: /etc/openvpn/server/ta.key
+
+- name: 'Generate Diffie-Hellman parameters with the default size (4096 bits)'
+  command:
+    cmd: openssl dhparam -dsaparam -out /etc/openvpn/server/dhp4096.pem 4096
+    creates: /etc/openvpn/server/dhp4096.pem
+
+- name: 'Remove CA directory'
+  file:
+    path: "{{ ansible_env.HOME }}/openvpn-ca/"
+    state: absent
+
+- name: 'Create CA dir'
+  command: "make-cadir {{ ansible_env.HOME }}/openvpn-ca"
+
+- name: 'Customize CA variable configuration'
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/openvpn-ca/vars"
+    regexp: "^{{ item.property | regex_escape() }}="
+    line: "{{ item.property }}={{ item.value }}"
+  with_items:
+    - { property: 'export KEY_NAME', value: '"server"' }
+    - { property: 'export KEY_COUNTRY', value: '"BR"' }
+    - { property: 'export KEY_PROVINCE', value: '"PB"' }
+    - { property: 'export KEY_CITY', value: '"JP"' }
+    - { property: 'export KEY_ORG', value: '"M&M"' }
+    - { property: 'export KEY_EMAIL', value: '"admin@example.com"' }
+    - { property: 'export KEY_OU', value: '"IT"' }
+    - { property: 'export KEY_CONFIG', value: '{{ ansible_env.HOME }}/openvpn-ca/openssl-1.0.0.cnf' }
+    - { property: 'export KEY_DIR', value: '{{ ansible_env.HOME }}/openvpn-ca/keys' }
+
+- name: "Build the certificate authority"
+  shell: >
+    source vars;
+    ./clean-all;
+    yes "" | ./build-ca
+  args: 
+    chdir: "{{ ansible_env.HOME }}/openvpn-ca/"
+    executable: /bin/bash
+
+- name: 'Build server certificate'
+  shell: >
+    source vars;
+    ./build-key-server --batch server
+  args: 
+    chdir: "{{ ansible_env.HOME }}/openvpn-ca/"
+    executable: /bin/bash
+
+- name: 'Copy the key and certificates to /etc/openvpn/server'
+  copy:
+    src: "{{ ansible_env.HOME }}/openvpn-ca/keys/{{ item }}"
+    dest: "/etc/openvpn/server"
+    remote_src: yes
+  with_items:
+    - "ca.crt"
+    - "server.crt"
+    - "server.key"
+
+- name: 'Copy the server.conf template'
+  template:
+    src: server.conf.j2
+    dest: /etc/openvpn/server.conf
+  notify:
+    - 'Start OpenVPN'

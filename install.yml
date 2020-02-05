@@ -1,0 +1,10 @@
+---
+- hosts: OpenVPN
+  become: yes
+  pre_tasks:
+     - name: 'Update the repository'
+       raw: 'apt-get update'
+     - name: 'Install the python package'
+       raw: 'apt-get install -y python'
+  roles:
+    - openvpn

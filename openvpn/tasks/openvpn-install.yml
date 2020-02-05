@@ -1,0 +1,28 @@
+- name: 'Add the OpenVPN repository key'
+  apt_key:
+    url: https://swupdate.openvpn.net/repos/repo-public.gpg
+    state: present
+
+- name: 'Add the OpenVPN repository'
+  apt_repository:
+    repo: deb http://build.openvpn.net/debian/openvpn/stable stretch main
+    state: present
+    filename: openvpn
+
+- name: 'Install the OpeVPN package'
+  apt:
+    name: ['openvpn', 'easy-rsa']
+    state: present
+    update_cache: yes
+
+- name: 'Create the vpn group'
+  group:
+    name: ovpn
+    state: present
+
+- name: 'Create the vpn user for the OpenVPN daemon'
+  user:
+    name: ovpn
+    group: ovpn
+    shell: /usr/sbin/nologin
+    create_home: False
